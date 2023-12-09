@@ -24,7 +24,7 @@
       <h2>Select Peer</h2>
     </div>
     <div>
-      <button id="getPeersButton" type="button">Refresh Peers</button>
+      <button id="getPeersButton" type="button">Trigger event</button>
       <select id="peer-select">
         <option value=""></option>
       </select>
@@ -265,12 +265,12 @@
         subscribeButton.disabled = true;
       };
 
-      queryStoreButton.onclick = async () => {
-        await node.store.queryWithOrderedCallback(
-          [decoder],
-          messageReceivedCallback
-        );
-      };
+      // queryStoreButton.onclick = async () => {
+      //   await node.store.queryWithOrderedCallback(
+      //     [decoder],
+      //     messageReceivedCallback
+      //   );
+      // };
 
       unsubscribeButton.onclick = async () => {
         await unsubscribe();
@@ -290,7 +290,35 @@
       };
 
       getPeersButton.onclick = async () => {
-        await getPeers(statusDiv, remoteMultiAddrDiv);
+        try{
+          await getPeers(statusDiv, remoteMultiAddrDiv);
+        }
+        catch(e){
+
+        }finally{
+          const ma = remoteMultiAddrDiv.value;
+        if (!ma) {
+          statusDiv.innerHTML = "<p>Error: No multiaddr provided.</p>";
+          return;
+        }
+        statusDiv.innerHTML = "<p>Dialing peer.</p>";
+        let multiaddr;
+        try {
+          multiaddr = MultiformatsMultiaddr.multiaddr(ma);
+        } catch (err) {
+          statusDiv.innerHTML = "<p>Error: invalid multiaddr provided</p>";
+          throw err;
+        }
+        await node.dial(multiaddr, ["filter", "lightpush", "store"]);
+        await node.lightPush.send(encoder, {
+          payload: utf8ToBytes("event data"),
+        });
+        console.log("Message sent!");
+        }
+  
+
+       
+
       };
 
       peersSelector.addEventListener("change", function (event) {
