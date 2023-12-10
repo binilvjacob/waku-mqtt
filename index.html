@@ -100,7 +100,7 @@
       const getPeersButton = document.getElementById("getPeersButton");
       const peersSelector = document.getElementById("peer-select");
 
-      const ContentTopic = "ethindia";
+      const ContentTopic = "ethindia/blockiot";
       const decoder = createDecoder(ContentTopic);
       const encoder = createEncoder({ contentTopic: ContentTopic });
       // Each key is a unique identifier for the message. Each value is an obj { text, timestamp }
@@ -145,16 +145,22 @@
         }
 
         function subscribeMessage() {
-          client.subscribe('ethindia', function (err) {
+          client.subscribe('ethindia/blockiot', function (err) {
           if (!err) {
-            console.log('Subscribed to my/test/topic');
+            console.log('Subscribed to ethindia/blockiot');
           }
         });
         }
 
         subscribeMessage();
 
-        client.on('message', function (topic, message) {
+        client.on('message', async function (topic, message) {
+        alert("message received",message)
+        await node.lightPush.send(encoder, {
+          payload: utf8ToBytes(message),
+        });
+        console.log("Message sent!");
+
     // Called each time a message is received
     console.log('Received mqtt message:', topic, message.toString());
   });
@@ -269,6 +275,8 @@
         unsubscribeButton.disabled = false;
         subscribeButton.disabled = true;
       };
+
+ 
 
       queryStoreButton.onclick = async () => {
         await node.store.queryWithOrderedCallback(

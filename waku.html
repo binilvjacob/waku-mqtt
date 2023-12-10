@@ -10,21 +10,12 @@
   </head>
 
   <body>
-    <div>
-      <h2>Status</h2>
-    </div>
     <div id="status"></div>
 
-    <div>
-      <h2>Local Peer Id</h2>
-    </div>
     <div id="peer-id"></div>
 
     <div>
-      <h2>Select Peer</h2>
-    </div>
-    <div>
-      <button id="getPeersButton" type="button">Trigger event</button>
+      <button id="getPeersButton" type="button">Refresh Peers</button>
       <select id="peer-select">
         <option value=""></option>
       </select>
@@ -42,28 +33,17 @@
     </div>
     <button disabled id="dial" type="button">Dial</button>
 
-    <div>
-      <h2>Remote Peers</h2>
-    </div>
     <div id="remote-peer-id"></div>
     <br />
-    <button disabled id="subscribe" type="button">Subscribe with Filter</button>
-    <button disabled id="unsubscribe" type="button">
-      Unsubscribe with Filter
-    </button>
     <br />
-    <label for="textInput">Message text</label>
-    <input id="textInput" placeholder="Type your message here" type="text" />
-    <button disabled id="sendButton" type="button">
-      Send message using Light Push
-    </button>
     <br />
     <div id="messages"></div>
 
-    
+    <button disabled id="queryStoreButton" type="button">
+      Get Device Data
+    </button>
 
     <script src="https://unpkg.com/@multiformats/multiaddr@12.1.1/dist/index.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.0.0/mqtt.min.js"></script>
     <script type="module">
       import {
         createLightNode,
@@ -79,8 +59,6 @@
       } from "https://unpkg.com/@waku/dns-discovery@0.0.16/bundle/index.js";
       import { messageHash } from "https://unpkg.com/@waku/message-hash@0.1.8/bundle/index.js";
 
-      //import { client } from "./mqtt.js"
-
       const peerIdDiv = document.getElementById("peer-id");
       const remotePeerIdDiv = document.getElementById("remote-peer-id");
       const statusDiv = document.getElementById("status");
@@ -95,77 +73,29 @@
       const getPeersButton = document.getElementById("getPeersButton");
       const peersSelector = document.getElementById("peer-select");
 
-      const ContentTopic = "ethindia";
+      const ContentTopic = "ethindia/blockiot";
       const decoder = createDecoder(ContentTopic);
       const encoder = createEncoder({ contentTopic: ContentTopic });
       // Each key is a unique identifier for the message. Each value is an obj { text, timestamp }
       let messages = {};
       let unsubscribe;
 
-
-      const mqttOptions = {
-          host: '14951d018b4a4ab6923ef058b3789020.s2.eu.hivemq.cloud',
-          port: 8883,
-          protocol: 'mqtts',
-          username: 'ethindia-client',
-          password: 'ethindia2023'
-        };
-
-       // const client = mqtt.connect(mqttOptions);
-
-       const client = mqtt.connect('ws://broker.emqx.io:8083/mqtt', {
-        username: 'ethindia-client',
-          password: 'ethindia2023',
-        });
-
-        client.on('connect', () => {
-            console.log('Connected to HiveMQ');
-        });
-
-        client.on('error', (error) => {
-            console.error('MQTT Error:', error);
-        });
-
-        function publishMessage(topic,message) {
-           // const topic = document.getElementById('topic').value;
-           // const message = document.getElementById('message').value;
-
-            if (topic && message) {
-                const resp= client.publish(topic, message);
-                console.log("response after publishing is ",resp)
-                console.log(`Published message to ${topic}: ${message}`);
-            } else {
-                console.error('Topic and message are required.');
-            }
-        }
-
-        function subscribeMessage() {
-          client.subscribe('ethindia', function (err) {
-          if (!err) {
-            console.log('Subscribed to my/test/topic');
-          }
-        });
-        }
-
-        subscribeMessage();
-
-        client.on('message', function (topic, message) {
-    // Called each time a message is received
-    console.log('Received mqtt message:', topic, message.toString());
-  });
-
       const updateMessages = (msgs, div) => {
         div.innerHTML = "<ul>";
+
+          console.log("entered update message")
+
         Object.values(msgs)
           .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
           .forEach(
-            (msg) => {
-                    console.log("decoded message from waku is ",msg);
-                    publishMessage("ethindia",msg.toString())
-                   // client.publish('ethindia', msg);
-            }
-             
+            (msg) =>
+              (div.innerHTML +=
+                "<li>" + `${msg.text} - ${msg.timestamp}` + "</li>")
           );
+
+          
+
+          
         div.innerHTML += "</ul>";
       };
 
@@ -213,9 +143,9 @@
         // Update status
         statusDiv.innerHTML = `<p>Peer dialed: ${peerId}</p>`;
         // Enable send and subscribe inputs as we are now connected to a peer
-        textInput.disabled = false;
-        sendButton.disabled = false;
-        subscribeButton.disabled = false;
+       // textInput.disabled = false;
+       // sendButton.disabled = false;
+       // subscribeButton.disabled = false;
         queryStoreButton.disabled = false;
       });
 
@@ -251,74 +181,48 @@
           text,
           timestamp: wakuMessage.timestamp,
         };
+        
         // call function to refresh display of messages
-        console.log("message from waku is",messages)
         updateMessages(messages, messagesDiv);
       };
 
-      subscribeButton.onclick = async () => {
-        unsubscribe = await node.filter.subscribe(
-          [decoder],
-          messageReceivedCallback
-        );
-        unsubscribeButton.disabled = false;
-        subscribeButton.disabled = true;
-      };
-
-      // queryStoreButton.onclick = async () => {
-      //   await node.store.queryWithOrderedCallback(
+      // subscribeButton.onclick = async () => {
+      //   unsubscribe = await node.filter.subscribe(
       //     [decoder],
       //     messageReceivedCallback
       //   );
+      //   unsubscribeButton.disabled = false;
+      //   subscribeButton.disabled = true;
       // };
 
-      unsubscribeButton.onclick = async () => {
-        await unsubscribe();
-        unsubscribe = undefined;
-        unsubscribeButton.disabled = true;
-        subscribeButton.disabled = false;
+
+      
+      queryStoreButton.onclick = async () => {
+        await node.store.queryWithOrderedCallback(
+          [decoder],
+          messageReceivedCallback
+        );
       };
 
-      sendButton.onclick = async () => {
-        const text = textInput.value;
+      // unsubscribeButton.onclick = async () => {
+      //   await unsubscribe();
+      //   unsubscribe = undefined;
+      //   unsubscribeButton.disabled = true;
+      //   subscribeButton.disabled = false;
+      // };
 
-        await node.lightPush.send(encoder, {
-          payload: utf8ToBytes(text),
-        });
-        console.log("Message sent!");
-        textInput.value = null;
-      };
+      // sendButton.onclick = async () => {
+      //   const text = textInput.value;
+
+      //   await node.lightPush.send(encoder, {
+      //     payload: utf8ToBytes(text),
+      //   });
+      //   console.log("Message sent!");
+      //   textInput.value = null;
+      // };
 
       getPeersButton.onclick = async () => {
-        try{
-          await getPeers(statusDiv, remoteMultiAddrDiv);
-        }
-        catch(e){
-
-        }finally{
-          const ma = remoteMultiAddrDiv.value;
-        if (!ma) {
-          statusDiv.innerHTML = "<p>Error: No multiaddr provided.</p>";
-          return;
-        }
-        statusDiv.innerHTML = "<p>Dialing peer.</p>";
-        let multiaddr;
-        try {
-          multiaddr = MultiformatsMultiaddr.multiaddr(ma);
-        } catch (err) {
-          statusDiv.innerHTML = "<p>Error: invalid multiaddr provided</p>";
-          throw err;
-        }
-        await node.dial(multiaddr, ["filter", "lightpush", "store"]);
-        await node.lightPush.send(encoder, {
-          payload: utf8ToBytes("event data"),
-        });
-        console.log("Message sent!");
-        }
-  
-
-       
-
+        await getPeers(statusDiv, remoteMultiAddrDiv);
       };
 
       peersSelector.addEventListener("change", function (event) {
